@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, LETTER
 from reportlab.lib.units import mm, cm
 
 # Usage:
@@ -22,11 +22,15 @@ from reportlab.lib.units import mm, cm
 # page size w/h or name from reportlab.lib.pagesizes
 
 labelInfo = {
+    # Herma 5027: 65x 38.1mm x 21.2mm on A4 with 5x13
     5027: (5, 13, (38.1 * mm, 21.2 * mm), (0, 0), (10.95 * mm, 10.9 * mm), A4),
+    # 24x 70mm x 37mm on A4 with 3x8
+    6605: (3, 8, (70 * mm, 37 * mm), (0, 0), (0, 0), A4),
     # 22x 32mm x 10mm mini labels
     3044: (2, 11, (32, 10), (2, 2), (1, 1), (66.5 * mm, 120.5 * mm)),
     # 189x 25.4mm x 10mm mini labels
     4731: (7, 27, (25.4 * mm, 10 * mm), (2.5 * mm, 0), (9 * mm, 13.5 * mm), A4),
+    7871: (7, 27, (25.4 * mm, 10 * mm), (2.5 * mm, 0), (9 * mm, 13.5 * mm), A4),
     # 2.6 x 1 address labels
     5160: (3, 10, (187, 72), (11, 0), (14, 36), A4),
     5161: (2, 10, (288, 72), (0, 0), (18, 36), A4),
@@ -40,12 +44,16 @@ labelInfo = {
     4778: (4, 12, (45.7 * mm, 21.2 * mm), (0.25 * cm, 0), (1.1 * cm, 2 * cm), A4),
     # APLI 100984 40x 52.5x29.7mm
     100984: (4, 10, (52.5 * mm, 29.7 * mm), (0, 0), (0, 0), A4),
+
+    # US Letter labels
+    # 1.75 x 0.5 return address labels US Letter
+    5195: (4, 15, (44.45 * mm, 16.75 *mm), (8 * mm, 0), (7 * mm, 14 * mm), LETTER),
 }
 
 
 class AveryLabel:
 
-    def __init__(self, label, **kwargs):
+    def __init__(self, label, pageoffset, **kwargs):
         data = labelInfo[label]
         self.across = data[0]
         self.down = data[1]
@@ -56,6 +64,8 @@ class AveryLabel:
         self.debug = False
         self.pagesize = data[5]
         self.position = 0
+        self.pageoffset = pageoffset
+
         self.__dict__.update(kwargs)
 
     def open(self, filename):
@@ -77,8 +87,8 @@ class AveryLabel:
                 y, x = divmod(x, self.across)
 
         return (
-            self.margins[0] + x * self.labelsep[0],
-            self.pagesize[1] - self.margins[1] - (y + 1) * self.labelsep[1],
+            self.margins[0] + x * self.labelsep[0] + self.pageoffset[0],
+            self.pagesize[1] - self.margins[1] - (y + 1) * self.labelsep[1] - self.pageoffset[1],
         )
 
     def advance(self):
@@ -102,7 +112,7 @@ class AveryLabel:
     # Or, pass a callable and an iterator.  We'll do one label
     # per iteration of the iterator.
 
-    def render(self, thing, count, offset=0, *args):
+    def render(self, thing, count, offset=0, pageshift=(0 * mm, 0 * mm), *args):
         """ render loop"""
         assert callable(thing) or isinstance(thing, str)
         if isinstance(count, Iterator):
@@ -129,6 +139,7 @@ class AveryLabel:
         canv = self.canvas
         for chunk in iterator:
             canv.saveState()
+
             canv.translate(*self.top_left())
             if self.debug:
                 canv.setLineWidth(0.25)
